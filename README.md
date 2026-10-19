@@ -5,7 +5,7 @@
 - Andrés Diaz
 - Nicolas Arias
 
-**Video de la demo:** [VER EN YOUTUBE]()
+**Video de la demo:** https://youtu.be/TEefQLKX_CE?si=94PbLvVeor2qFm2c
 
 ---
 
