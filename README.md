@@ -175,6 +175,24 @@ Verificación con valores conocidos de π(N):
 > COMPLETAR con lo observado por el grupo.
 
 - **Comparación de `hola` entre lenguajes:** (tiempos de arranque en Python, Java y C; qué se nota de la JVM).
+Con `hola` en complejidad baja, los tres Jobs duraron 3 s, porque Kubernetes mide el Pod completo (creación y arranque) y solo en segundos enteros. La diferencia está en el campo `ms` del log: C y Python marcaron 0 ms y Java 80 ms, coherente con el arranque de la JVM. Además, Java ve los límites del contenedor (1 CPU, 61 MiB de heap), mientras que Python reporta las 16 CPU del nodo.
+
+   ![hola en C, Java y Python](evidencias/1-hola-tres-lenguajes.png)
+  
 - **Prueba de `OOMKilled`:** (qué `mem_limit` se usó, con qué tarea, y qué mostró `kubectl describe pod`).
+Al bajar la memoria del nivel `alta` (request 32Mi, limit 64Mi) y ejecutar `ordenar` en Python con N=3.000.000, el Pod terminó con `Reason: OOMKilled` y `Exit Code: 137` (128 + SIGKILL). No se reinició (`RESTARTS 0`, por `restart_policy="Never"` y `backoff_limit=0`), el Job quedó fallido y el log salió vacío porque el proceso murió antes de imprimir. El límite de memoria es un tope duro: superarlo mata el contenedor, mientras que el de CPU solo lo frena. Se restauraron los valores originales.
+
+   ![NIVELES editado](evidencias/2-oom-alta-editado.png)
+   ![Creación del Job desde el menú](evidencias/3-oom-crear-job.png)
+   ![OOMKilled en kubectl](evidencias/4-oomkilled.png)
+  
 - **Pods huérfanos:** (qué pasó al borrar el Job sin `propagation_policy`).
+Los estados del menú coinciden con `kubectl get jobs,pods`: `python-fib-alta` pasó de "en ejecución" a "completado correctamente" mientras su Pod recorría `Pending`, `ContainerCreating`, `Running` y `Completed` (unos 5 s), y `ordenar` figura como "fallido" y `Failed 0/1`. Hay tres diferencias: (1) el menú no distingue las fases del Pod, porque se basa en los contadores del Job; (2) un Job fallido aparece solo como "fallido", mientras que `kubectl get pods` revela la causa (`OOMKilled`); (3) el DURATION de `kubectl` para un Job fallido sigue creciendo (20 m, luego 25 m) aunque el Pod murió en segundos, porque el Job nunca registra hora de finalización.
+
+   ![Menú vs kubectl](evidencias/5-menu-vs-kubectl.png)
+  
 - **Contraste con el clúster:** lo que muestra el menú coincide con `kubectl get jobs,pods -n estudiantes-202630`.
+Al quitar `body=client.V1DeleteOptions(propagation_policy="Background")` de `eliminar_job`, el Job se eliminó pero su Pod (`python-hola-baja-1792391768-lmjk7`) siguió en estado `Completed` y su `ownerReferences`, que antes apuntaba al Job, quedó vacío: un Pod huérfano que nada eliminará. Con la política original, Job y Pod desaparecían juntos, y por eso `eliminar_job` usa `Background`. Se restauró el código original.
+
+   ![eliminar_job sin body](evidencias/6-huerfanos-eliminarjob-editado.png)
+   ![Pod huérfano](evidencias/7-huerfanos-pod-sin-owner.png)
